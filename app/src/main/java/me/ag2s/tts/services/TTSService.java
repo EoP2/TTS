@@ -35,6 +35,8 @@ import androidx.annotation.NonNull;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -46,6 +48,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import me.ag2s.tts.APP;
 import me.ag2s.tts.R;
@@ -54,8 +57,12 @@ import me.ag2s.tts.data.TtsActorManger;
 import me.ag2s.tts.utils.ByteArrayMediaDataSource;
 import me.ag2s.tts.utils.CommonTool;
 import me.ag2s.tts.utils.GcManger;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
@@ -95,6 +102,20 @@ public class TTSService extends TextToSpeechService {
     private int oldFormatIndex = 0;
     @Nullable
     private SynthesisCallback callback;
+
+    /**
+     * 自定义服务器请求体的MediaType
+     */
+    private static final MediaType JSON_MEDIA_TYPE = MediaType.parse("application/json; charset=utf-8");
+
+    /**
+     * 自定义服务器固定返回的音频格式。
+     * 对应你现有 worker.js 里 speech.config 硬编码的 outputFormat（audio-24khz-96kbitrate-mono-mp3）。
+     * 由于不修改服务端，这个值只能跟服务端保持一致，APP里的"音频流格式"菜单在自定义服务器模式下不生效。
+     */
+    private static final TtsOutputFormat CUSTOM_SERVER_OUTPUT_FORMAT =
+            new TtsOutputFormat("audio-24khz-96kbitrate-mono-mp3", 24000, AudioFormat.ENCODING_PCM_16BIT, true);
+
     @NonNull
     private final WebSocketListener webSocketListener = new WebSocketListener() {
         @Override
@@ -692,35 +713,57 @@ public class TTSService extends TextToSpeechService {
 //            Log.e(TAG, key + "__" + bundle.get(key));
 //        }
 
-        //设置发送的音质
-        int index = APP.getInt(Constants.AUDIO_FORMAT_INDEX, 0);
-
-
-        TtsConfig ttsConfig = new TtsConfig.Builder(index).build();
-        this.currentFormat = ttsConfig.getFormat();
         this.callback = callback;
         reNewWakeLock();
-
 
         String name = request.getVoiceName();
         if (APP.getBoolean(Constants.USE_CUSTOM_VOICE, true)) {
             name = APP.getString(Constants.CUSTOM_VOICE, "zh-CN-XiaoxiaoNeural");
         }
+
+        // ========== 自定义服务器模式：走HTTP接口，不连微软WebSocket，且不要求服务端做任何修改 ==========
+        // 只发送纯文本 + 语速/音调/音量，字段名和格式与原版 worker.js 的 /tts 接口完全对应。
+        // 因此这个模式下不支持：自定义发音词典、分句停顿、讲话风格——这几个功能都是往正文里插入
+        // XML标签（<phoneme>、<p>、<mstts:express-as>等）来实现的，纯文本接口会把标签转义后当文字读出来，
+        // 所以直接不启用，只保证语速/音调/音量/发音人这些"参数类"设置正常生效。
+        if (APP.getBoolean(Constants.USE_CUSTOM_SERVER, false)) {
+            this.currentFormat = CUSTOM_SERVER_OUTPUT_FORMAT;
+            //在Google Play图书之类应用会闪退，应该及时调用该方法
+            callback.start(currentFormat.HZ,
+                    currentFormat.BitRate, 1 /* Number of channels. */);
+
+            String plainText = request.getCharSequenceText().toString().replace("\n", " ").trim();
+            short pitchValue = (short) (request.getPitch() - 100);
+            short rateValue = (short) request.getSpeechRate();
+            String rateStr = (rateValue / 100) + "." + (rateValue % 100);
+            String pitchStr = pitchValue + "%";
+            int volumeValue = APP.getInt(Constants.VOICE_VOLUME, 100);
+
+            sendTextByCustomServer(plainText, name, rateStr, pitchStr, String.valueOf(volumeValue), callback);
+            return;
+        }
+
+        //设置发送的音质
+        int index = APP.getInt(Constants.AUDIO_FORMAT_INDEX, 0);
+        TtsConfig ttsConfig = new TtsConfig.Builder(index).build();
+
         int styleIndex = APP.getInt(Constants.VOICE_STYLE_INDEX, 0);
         TtsStyle ttsStyle = TtsStyleManger.getInstance().get(styleIndex);
         ttsStyle.setStyleDegree(APP.getInt(Constants.VOICE_STYLE_DEGREE, 100));
         ttsStyle.setVolume(APP.getInt(Constants.VOICE_VOLUME, 100));
         boolean useDict = APP.getBoolean(Constants.USE_DICT, false);
 
+        isPreview = false;
+        SSML ssml = SSML.getInstance(request, name, ttsStyle, useDict, isPreview);
+        Log.e(TAG, ssml.toString());
 
+        // ========== 原有模式：直连微软WebSocket ==========
+        this.currentFormat = ttsConfig.getFormat();
         //webSocket = webSocket == null ? getOrCreateWs() : webSocket;
         if (oldFormatIndex != index) {
             sendConfig(getOrCreateWs(), ttsConfig);
             oldFormatIndex = index;
         }
-        isPreview = false;
-        SSML ssml = SSML.getInstance(request, name, ttsStyle, useDict, isPreview);
-        Log.e(TAG, ssml.toString());
         //在Google Play图书之类应用会闪退，应该及时调用该方法
         callback.start(currentFormat.HZ,
                 currentFormat.BitRate, 1 /* Number of channels. */);
@@ -745,6 +788,118 @@ public class TTSService extends TextToSpeechService {
         }
 
 
+    }
+
+    /**
+     * 通过自定义服务器合成语音——完全对应你现有、未做任何修改的 worker.js 的 /tts 接口：
+     * POST JSON: {"text": "...", "voice": "...", "rate": "...", "pitch": "...", "volume": "..."}
+     * 服务器直接返回音频二进制数据（MP3），不需要在服务端做任何改动。
+     * <p>
+     * 域名/地址在"设置"界面中配置，保存在 Constants.CUSTOM_SERVER_URL 对应的SharedPreferences中，
+     * 因此可以随时更换，无需重新编译APP。
+     */
+    private void sendTextByCustomServer(@NonNull String text, @NonNull String voice, @NonNull String rate,
+                                         @NonNull String pitch, @NonNull String volume, @NonNull SynthesisCallback callback) {
+        String base = APP.getString(Constants.CUSTOM_SERVER_URL, "");
+        if (base == null) {
+            base = "";
+        }
+        base = base.trim();
+        if (base.isEmpty()) {
+            Log.e(TAG, "自定义服务器地址未配置");
+            updateNotification("TTS服务-错误中", "未配置自定义服务器地址，请在设置中填写");
+            callback.error();
+            isSynthesizing = false;
+            return;
+        }
+        if (!base.startsWith("http://") && !base.startsWith("https://")) {
+            base = "https://" + base;
+        }
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+
+        String url = base + "/tts";
+
+        JSONObject json = new JSONObject();
+        try {
+            json.put("text", text);
+            json.put("voice", voice);
+            json.put("rate", rate);
+            json.put("pitch", pitch);
+            json.put("volume", volume);
+        } catch (JSONException e) {
+            Log.e(TAG, "构建自定义服务器请求体失败", e);
+            callback.error();
+            isSynthesizing = false;
+            return;
+        }
+
+        RequestBody body = RequestBody.create(json.toString(), JSON_MEDIA_TYPE);
+        Request httpRequest = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
+
+        Log.e(TAG, "自定义服务器请求:" + url);
+        updateNotification("TTS服务-生成中", "正在请求自定义服务器...");
+
+        //自定义超时时间，避免用一个较短的默认超时打断较长文本的合成
+        OkHttpClient callClient = client.newBuilder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .build();
+
+        callClient.newCall(httpRequest).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                Log.e(TAG, "自定义服务器请求失败", e);
+                updateNotification("TTS服务-错误中", "自定义服务器请求失败:" + e.getMessage());
+                if (isSynthesizing) {
+                    callback.error();
+                }
+                isSynthesizing = false;
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) {
+                try (Response r = response) {
+                    if (!r.isSuccessful()) {
+                        String err = "";
+                        try {
+                            if (r.body() != null) {
+                                err = r.body().string();
+                            }
+                        } catch (Exception ignored) {
+                        }
+                        Log.e(TAG, "自定义服务器返回错误:" + r.code() + " " + err);
+                        updateNotification("TTS服务-错误中", "服务器返回错误码:" + r.code());
+                        if (isSynthesizing) {
+                            callback.error();
+                        }
+                        isSynthesizing = false;
+                        return;
+                    }
+                    if (!isSynthesizing || callback.hasFinished()) {
+                        isSynthesizing = false;
+                        return;
+                    }
+                    byte[] audioBytes = Objects.requireNonNull(r.body()).bytes();
+                    if (!CUSTOM_SERVER_OUTPUT_FORMAT.needDecode) {
+                        doUnDecode(callback, CUSTOM_SERVER_OUTPUT_FORMAT, ByteString.of(audioBytes));
+                    } else {
+                        doDecode(callback, CUSTOM_SERVER_OUTPUT_FORMAT, ByteString.of(audioBytes));
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "处理自定义服务器响应失败", e);
+                    if (isSynthesizing) {
+                        callback.error();
+                    }
+                    isSynthesizing = false;
+                }
+            }
+        });
     }
 
 

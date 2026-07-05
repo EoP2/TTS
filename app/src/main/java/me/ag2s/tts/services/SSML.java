@@ -161,25 +161,16 @@ public class SSML {
     }
 
 
+    /**
+     * 只构建SSML正文（不含WebSocket的Path帧头），
+     * 供直连微软WebSocket 和 自定义HTTP服务器 两种发送方式共用，
+     * 保证两种模式下的讲话风格、强度、词典替换效果完全一致。
+     */
     @NonNull
-    @Override
-    public String toString() {
+    public String toSpeakXml() {
         String rateString = rate / 100 + "." + rate % 100;
-//        if (!usePre) {
-//            return "Path: ssml" + "\r\n" +
-//                    "X-RequestId: " + id + "\r\n" +
-//                    "X-Timestamp: " + time + "Z" + "\r\n" +
-//                    "Content-Type: application/ssml+xml" + "\r\n\r\n" +
-//                    "<speak xmlns=\"http://www.w3.org/2001/10/synthesis\" xmlns:mstts=\"http://www.w3.org/2001/mstts\" xmlns:emo=\"http://www.w3.org/2009/10/emotionml\" version=\"1.0\" xml:lang=\"en-US\"><voice name=\"" + name + "\"><prosody rate=\"" + rateString + "%\" pitch=\"" + pitch + "%\">" + content.toString() + "\r\n" +
-//                    "</prosody></voice></speak>";
-//        }
         //String pitchString = pitch >= 0 ? "+" + pitch + "Hz" : pitch + "Hz";
-        StringBuilder sb = new StringBuilder()
-                .append("Path:ssml\r\n")
-                .append("X-RequestId:").append(id).append("\r\n")
-                .append("X-Timestamp:").append(time).append("Z\r\n")
-                .append("Content-Type:application/ssml+xml\r\n\r\n");
-
+        StringBuilder sb = new StringBuilder();
 
         sb.append("<speak version=\"1.0\" xmlns=\"http://www.w3.org/2001/10/synthesis\" xmlns:emo=\"http://www.w3.org/2009/10/emotionml\"  xmlns:mstts=\"https://www.w3.org/2001/mstts\" xml:lang=\"").append(lang).append("\">");
         sb.append("<voice  name=\"").append(name).append("\">");
@@ -204,5 +195,23 @@ public class SSML {
         sb.append("</voice></speak>");
 
         return sb.toString();
+    }
+
+    @NonNull
+    @Override
+    public String toString() {
+//        if (!usePre) {
+//            return "Path: ssml" + "\r\n" +
+//                    "X-RequestId: " + id + "\r\n" +
+//                    "X-Timestamp: " + time + "Z" + "\r\n" +
+//                    "Content-Type: application/ssml+xml" + "\r\n\r\n" +
+//                    "<speak xmlns=\"http://www.w3.org/2001/10/synthesis\" xmlns:mstts=\"http://www.w3.org/2001/mstts\" xmlns:emo=\"http://www.w3.org/2009/10/emotionml\" version=\"1.0\" xml:lang=\"en-US\"><voice name=\"" + name + "\"><prosody rate=\"" + rateString + "%\" pitch=\"" + pitch + "%\">" + content.toString() + "\r\n" +
+//                    "</prosody></voice></speak>";
+//        }
+        return "Path:ssml\r\n" +
+                "X-RequestId:" + id + "\r\n" +
+                "X-Timestamp:" + time + "Z\r\n" +
+                "Content-Type:application/ssml+xml\r\n\r\n" +
+                toSpeakXml();
     }
 }

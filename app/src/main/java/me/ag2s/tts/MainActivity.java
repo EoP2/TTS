@@ -112,6 +112,12 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
         binding.switchUseDict.setOnCheckedChangeListener((buttonView, isChecked) -> APP.putBoolean(Constants.USE_DICT, isChecked));
         APP.putBoolean(USE_PREVIEW, false);
         showStyleView(APP.getBoolean(Constants.USE_PREVIEW, false));
+
+        //自定义服务器：地址回显 + 开关状态 + 保存按钮
+        binding.etCustomServerUrl.setText(APP.getString(Constants.CUSTOM_SERVER_URL, ""));
+        binding.switchUseCustomServer.setChecked(APP.getBoolean(Constants.USE_CUSTOM_SERVER, false));
+        binding.switchUseCustomServer.setOnCheckedChangeListener((buttonView, isChecked) -> APP.putBoolean(Constants.USE_CUSTOM_SERVER, isChecked));
+        binding.btnSaveCustomServer.setOnClickListener(this);
 //        binding.switchUsePreview.setChecked(APP.getBoolean(Constants.USE_PREVIEW, false));
 //        binding.switchUsePreview.setOnCheckedChangeListener(((buttonView, isChecked) -> {
 //            showStyleView(isChecked);
@@ -410,6 +416,10 @@ public class MainActivity extends Activity implements View.OnClickListener, Seek
                 volumeValue++;
                 updateView();
             }
+        } else if (id == binding.btnSaveCustomServer.getId()) {
+            String url = binding.etCustomServerUrl.getText().toString().trim();
+            APP.putString(Constants.CUSTOM_SERVER_URL, url);
+            Toast.makeText(MainActivity.this, R.string.custom_server_url_saved, Toast.LENGTH_SHORT).show();
         }
 
     }

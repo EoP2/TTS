@@ -33,5 +33,9 @@
     <string name="split_sentence">使用分句</string>
     <string name="use_preview">预览语音</string>
 
+    <string name="use_custom_server">自定义服务器</string>
+    <string name="custom_server_url_hint">服务器地址，如 https://your-worker.workers.dev</string>
+    <string name="save">保存</string>
+    <string name="custom_server_url_saved">自定义服务器地址已保存</string>
 
 </resources>
