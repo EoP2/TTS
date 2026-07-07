@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="8dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:text="@string/custom_server_label" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/et_custom_server_url"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:autofillHints=""
+                    android:hint="@string/custom_server_url_hint"
+                    android:importantForAutofill="no"
+                    android:inputType="textUri"
+                    android:singleLine="true"
+                    tools:ignore="LabelFor" />
+
+                <Button
+                    android:id="@+id/btn_save_custom_server"
+                    style="?android:attr/buttonBarButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:text="@string/save" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:minHeight="48dp"
+                android:orientation="horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
+
+                <Button
+                    android:id="@+id/btn_set_tts"
+                    style="?android:attr/buttonBarButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/set_tts" />
+
+                <Button
+                    android:id="@+id/btn_kill_battery"
+                    style="?android:attr/buttonBarButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/kill_battery"
+                    android:visibility="gone" />
+
+                <Switch
+                    style="?android:attr/buttonBarButtonStyle"
+                    android:id="@+id/switch_use_custom_voice"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/use_custom_language" />
+
+
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- 音量 -->
+        <TextView
+            android:id="@+id/tts_volume_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            android:hint="音量: 100"
+            tools:ignore="HardcodedText" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/tts_voice_volume_reduce"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/ic_reduce" />
+
+            <SeekBar
+                android:id="@+id/tts_voice_volume"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:layout_margin="0dp"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:max="100"
+                android:min="1"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:thumbOffset="0dp"
+                android:visibility="visible"
+                tools:targetApi="o" />
+
+            <Button
+                android:id="@+id/tts_voice_volume_add"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/ic_add" />
+
+        </LinearLayout>
+
+        <!-- 语速 -->
+        <TextView
+            android:id="@+id/tts_rate_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:hint="语速: +0%"
+            tools:ignore="HardcodedText" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/tts_rate_delta_reduce"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/ic_reduce" />
+
+            <SeekBar
+                android:id="@+id/tts_rate_delta"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:layout_margin="0dp"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:max="100"
+                android:min="-50"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:thumbOffset="0dp"
+                android:visibility="visible"
+                tools:targetApi="o" />
+
+            <Button
+                android:id="@+id/tts_rate_delta_add"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/ic_add" />
+
+        </LinearLayout>
+
+        <!-- 音调 -->
+        <TextView
+            android:id="@+id/tts_pitch_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:hint="音调: +0%"
+            tools:ignore="HardcodedText" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/tts_pitch_delta_reduce"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/ic_reduce" />
+
+            <SeekBar
+                android:id="@+id/tts_pitch_delta"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:layout_margin="0dp"
+                android:layout_weight="1"
+                android:adjustViewBounds="true"
+                android:max="50"
+                android:min="-50"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:thumbOffset="0dp"
+                android:visibility="visible"
+                tools:targetApi="o" />
+
+            <Button
+                android:id="@+id/tts_pitch_delta_add"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_margin="8dp"
+                android:background="@drawable/ic_add" />
+
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_voice_actors"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:nestedScrollingEnabled="false"
+            android:numColumns="2" />
+
+    </LinearLayout>
+
+</ScrollView>
