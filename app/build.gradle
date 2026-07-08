@@ -1,0 +1,151 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+static def releaseTime() {
+    return new Date().format("yyyyMMddHHmm", TimeZone.getTimeZone("GMT+08:00"))
+}
+
+android {
+    compileSdk  = 35
+    buildToolsVersion = '35.0.0'
+    //签名设置
+    signingConfigs {
+        release {
+            keyAlias 'key'
+            keyPassword '1234567890'
+            storeFile file('../public.jks')
+            storePassword '1234567890'
+            v1SigningEnabled =true
+            v2SigningEnabled =true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+        debug {
+            keyAlias 'key'
+            keyPassword '1234567890'
+            storeFile file('../public.jks')
+            storePassword '1234567890'
+        }
+    }
+
+    defaultConfig {
+        applicationId "me.ag2s.tts"
+        minSdk =21
+        targetSdk =35
+        versionCode 1
+        versionName "0.2_${releaseTime()}"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            // 启用资源缩减
+            shrinkResources =true
+            // Zipalign优化
+            zipAlignEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig =signingConfigs.release
+        }
+        debug {
+            minifyEnabled false
+            // 启用资源缩减
+            shrinkResources =false
+            // Zipalign优化
+            zipAlignEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig =signingConfigs.debug
+        }
+    }
+
+    buildFeatures {
+        viewBinding = true
+    }
+
+
+
+    compileOptions {
+        //coreLibraryDesugaringEnabled true
+        // Sets Java compatibility to Java 11
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    dependenciesInfo {
+        includeInApk = true
+        includeInBundle = false
+    }
+    namespace = 'me.ag2s.tts'
+
+    android.applicationVariants.configureEach {
+        variant ->
+
+            def name = ((project.name != "app") ? project.name : rootProject.name.replace(" ", "")) + "_" + variant.buildType.name + "_" + "v" + variant.versionName + ".apk"
+            variant.outputs.forEach {
+
+                it.outputFileName = name
+            }
+
+
+    }
+
+
+}
+
+tasks.configureEach { task ->
+    //新版的AGP7.1.0修改apk输出路径会导致文件找不到而出错（硬编码？？？），暂时禁用这个task
+//    if(task.name.contains("createReleaseApkListingFileRedirect")) {
+//        //task.enabled = false
+//    }
+    if (task.name == 'assembleRelease') {
+        task.finalizedBy syncApkFile
+    }
+}
+
+
+tasks.register('syncMappingFile', Sync) {
+    dependsOn('minifyReleaseWithR8')
+    from "$projectDir/build/outputs/mapping/release"
+    into "$rootDir/release/mapping"
+    exclude("configuration.txt")
+    exclude("resources.txt")
+
+
+}
+
+
+tasks.register('syncApkFile', Sync) {
+    dependsOn syncMappingFile
+    from "$projectDir/build/outputs/apk/release"
+    into "$rootDir/release"
+    exclude("logs/**")
+    exclude("sdk-dependencies/**")
+    //保护下面的不会被删除
+    preserve {
+        include("mapping/**")
+    }
+}
+
+
+
+dependencies {
+
+    //compileOnly "com.android.tools.build:gradle:$agp_version"
+
+    //coreLibraryDesugaring('com.android.tools:desugar_jdk_libs:1.1.5')
+
+    implementation libs.androidx.recyclerview
+    //implementation 'org.conscrypt:conscrypt-android:2.5.2'
+    //An HTTP & HTTP/2 client for Android and Java applications.
+    implementation libs.okhttp
+    implementation libs.okhttp.dnsoverhttps
+    implementation libs.okio
+
+
+    testImplementation libs.junit
+
+    androidTestImplementation libs.androidx.junit
+    androidTestImplementation libs.androidx.espresso.core
+
+}
+
